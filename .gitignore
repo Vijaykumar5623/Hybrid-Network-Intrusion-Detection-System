@@ -1,0 +1,27 @@
+# Virtual environments
+hybrid_ids_env/
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large artifacts / archives
+archive/
+archive.zip
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Logs
+*.log

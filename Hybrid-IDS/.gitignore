@@ -1,0 +1,33 @@
+# Data
+data/*
+!data/.gitkeep
+
+# Models
+models/*
+!models/.gitkeep
+
+# DB
+db/*
+!db/.gitkeep
+
+# Virtual environments
+venv/
+*.venv/
+hybrid_ids_env/
+env/
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Logs
+*.log
