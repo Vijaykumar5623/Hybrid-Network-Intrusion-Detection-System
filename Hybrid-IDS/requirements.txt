@@ -5,3 +5,9 @@ pandas
 # ML / preprocessing
 scikit-learn
 joblib
+
+# Supervised classifier
+xgboost
+
+# Supervised classifier
+xgboost

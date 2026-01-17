@@ -2,9 +2,18 @@
 data/*
 !data/.gitkeep
 
+# Generated artifacts
+data/processed/*.npy
+data/processed/*.npz
+
 # Models
 models/*
 !models/.gitkeep
+
+# Model artifacts
+models/*.pkl
+models/*.h5
+models/*.weights
 
 # DB
 db/*
