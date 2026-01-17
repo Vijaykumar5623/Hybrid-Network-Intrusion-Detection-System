@@ -9,5 +9,8 @@ joblib
 # Supervised classifier
 xgboost
 
+# Deep learning (autoencoder)
+tensorflow==2.15.0
+
 # Supervised classifier
 xgboost
