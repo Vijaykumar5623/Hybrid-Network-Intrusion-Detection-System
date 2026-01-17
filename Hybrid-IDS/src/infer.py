@@ -36,6 +36,32 @@ def parse_features(raw: str) -> np.ndarray:
 	return values.reshape(1, -1)
 
 
+def build_fusion_artifacts(project_root: Optional[Path] = None):
+	paths = get_paths(project_root)
+	return load_artifacts(paths.models_dir)
+
+
+def infer_scores(
+	X: np.ndarray,
+	*,
+	project_root: Optional[Path] = None,
+	artifacts=None,
+	w1: float = 0.7,
+	w2: float = 0.3,
+	threshold_high: Optional[float] = None,
+	batch_size: int = 256,
+) -> dict:
+	artifacts = artifacts or build_fusion_artifacts(project_root)
+	return fuse_scores(
+		X,
+		artifacts=artifacts,
+		w1=w1,
+		w2=w2,
+		threshold_high=threshold_high,
+		batch_size=batch_size,
+	)
+
+
 def main() -> None:
 	parser = argparse.ArgumentParser(description="Hybrid-IDS inference CLI")
 	parser.add_argument(
@@ -59,8 +85,7 @@ def main() -> None:
 	args = parser.parse_args()
 
 	project_root = Path(args.project_root).resolve() if args.project_root else None
-	paths = get_paths(project_root)
-	artifacts = load_artifacts(paths.models_dir)
+	artifacts = build_fusion_artifacts(project_root)
 
 	X: Optional[np.ndarray] = None
 	if args.input:
@@ -70,7 +95,7 @@ def main() -> None:
 	else:
 		raise SystemExit("Provide --input or --features")
 
-	result = fuse_scores(
+	result = infer_scores(
 		X,
 		artifacts=artifacts,
 		w1=args.w1,
