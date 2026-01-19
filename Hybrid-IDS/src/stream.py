@@ -13,6 +13,7 @@ from typing import Iterable, Optional
 
 import numpy as np
 
+from config import enrich_event
 from infer import infer_scores, load_input
 
 
@@ -26,6 +27,8 @@ def format_event(
 	label: str,
 	risk: float,
 	anomaly: float,
+	reconstruction_error: float,
+	threshold_p95: float,
 	top_probs: list[tuple[int, float]],
 ) -> str:
 	event = {
@@ -33,8 +36,11 @@ def format_event(
 		"label": label,
 		"risk": float(risk),
 		"anomaly": float(anomaly),
+		"reconstruction_error": float(reconstruction_error),
+		"anomaly_threshold_p95": float(threshold_p95),
 		"top_probs": [(int(c), float(p)) for c, p in top_probs],
 	}
+	enrich_event(event, anomaly_threshold_p95=threshold_p95)
 	return json.dumps(event)
 
 
@@ -59,6 +65,11 @@ def main() -> None:
 	parser.add_argument("--w1", type=float, default=0.7)
 	parser.add_argument("--w2", type=float, default=0.3)
 	parser.add_argument("--threshold-high", type=float, default=None)
+	parser.add_argument(
+		"--input-scaled",
+		action="store_true",
+		help="Set when --input is already scaled with the saved scaler.",
+	)
 	parser.add_argument(
 		"--log",
 		type=str,
@@ -86,11 +97,14 @@ def main() -> None:
 				w2=args.w2,
 				threshold_high=args.threshold_high,
 				batch_size=args.batch_size,
+				input_scaled=args.input_scaled,
 			)
 
 			labels = result["labels"]
 			risk = result["risk"]
 			anomaly = result["anomaly_score"]
+			recon = result["reconstruction_error"]
+			threshold_p95 = float(result.get("threshold_p95", 0.0))
 			proba = result["probabilities"]
 
 			for i in range(len(labels)):
@@ -100,6 +114,8 @@ def main() -> None:
 					label=str(labels[i]),
 					risk=float(risk[i]),
 					anomaly=float(anomaly[i]),
+					reconstruction_error=float(recon[i]),
+					threshold_p95=threshold_p95,
 					top_probs=top_probs,
 				)
 				print(line)

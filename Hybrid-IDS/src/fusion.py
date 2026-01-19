@@ -1,7 +1,7 @@
 """Fusion engine for Hybrid IDS.
 
 Combines classifier probabilities and autoencoder reconstruction error to produce
-risk scores and final labels (including UNKNOWN_ATTACK for zero-day anomalies).
+risk scores and final labels (including ZERO_DAY for emerging anomalies).
 """
 
 from __future__ import annotations
@@ -110,11 +110,12 @@ def fuse_scores(
 	w2: float = 0.3,
 	threshold_high: Optional[float] = None,
 	batch_size: int = 256,
+	input_scaled: bool = False,
 ) -> dict:
 	X = _ensure_2d(X)
 
 	# Scale if raw features are provided
-	X_scaled = artifacts.scaler.transform(X)
+	X_scaled = X if input_scaled else artifacts.scaler.transform(X)
 
 	proba = _predict_proba(artifacts.classifier, X_scaled)
 	attack_prob = 1.0 - proba[:, BENIGN_CLASS]
@@ -132,14 +133,17 @@ def fuse_scores(
 
 	if threshold_high is None:
 		threshold_high = float(artifacts.ae_stats.get("threshold_p99", 0.0))
+	threshold_p95 = float(artifacts.ae_stats.get("threshold_p95", 0.0))
+	zero_day_threshold = mean + (2.0 * std)
 
 	pred_class = np.argmax(proba, axis=1)
+	top1_prob = np.max(proba, axis=1)
 	labels: list[str] = []
 	for i, cls in enumerate(pred_class):
-		if cls != BENIGN_CLASS:
+		if top1_prob[i] < 0.6 and recon[i] > zero_day_threshold:
+			labels.append("ZERO_DAY")
+		elif cls != BENIGN_CLASS:
 			labels.append(ID_TO_LABEL.get(int(cls), str(int(cls))))
-		elif recon[i] > threshold_high:
-			labels.append("UNKNOWN_ATTACK")
 		else:
 			labels.append("BENIGN")
 
@@ -150,6 +154,10 @@ def fuse_scores(
 		"reconstruction_error": recon,
 		"probabilities": proba,
 		"attack_prob": attack_prob,
+		"top1_prob": top1_prob,
+		"threshold_p95": threshold_p95,
+		"threshold_p99": float(threshold_high),
+		"zero_day_threshold": zero_day_threshold,
 	}
 
 

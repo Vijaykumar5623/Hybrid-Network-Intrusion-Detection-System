@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+	sys.path.insert(0, str(SRC_DIR))
+
+from config import enrich_event, normalize_label
 
 
 DEFAULT_LOG = Path("data") / "processed" / "events.jsonl"
@@ -24,6 +32,7 @@ LABEL_COLORS = {
 	"BOTNET": "#ff4d6d",
 	"INFILTRATION": "#ff5f5f",
 	"UNKNOWN_ATTACK": "#8b5cf6",
+	"ZERO_DAY": "#8b5cf6",
 }
 
 
@@ -38,7 +47,7 @@ def load_events(log_path: Path, tail: int) -> pd.DataFrame:
 			if not line:
 				continue
 			try:
-				rows.append(json.loads(line))
+				rows.append(enrich_event(json.loads(line)))
 			except json.JSONDecodeError:
 				continue
 
@@ -93,6 +102,28 @@ def main() -> None:
 		st.warning("No events yet. Run stream.py with --log to generate events.")
 		st.stop()
 
+	with st.sidebar:
+		st.markdown("---")
+		st.subheader("Filters")
+		severity_filter = st.multiselect(
+			"Severity",
+			options=["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+			default=["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+		)
+		category_options = sorted(df["category"].dropna().unique().tolist()) if "category" in df else []
+		mitre_options = sorted(df["mitre"].dropna().unique().tolist()) if "mitre" in df else []
+		category_filter = st.multiselect("Category", options=category_options, default=category_options)
+		mitre_filter = st.multiselect("MITRE", options=mitre_options, default=mitre_options)
+
+	if "label" in df:
+		df["label"] = df["label"].apply(lambda value: normalize_label(str(value)))
+	if severity_filter:
+		df = df[df["severity"].isin(severity_filter)]
+	if category_filter:
+		df = df[df["category"].isin(category_filter)]
+	if mitre_filter:
+		df = df[df["mitre"].isin(mitre_filter)]
+
 	col1, col2, col3, col4 = st.columns(4)
 	col1.metric("Events", len(df))
 	col2.metric("Unique Labels", df["label"].nunique())
@@ -106,13 +137,13 @@ def main() -> None:
 		st.subheader("Live Events")
 		display = df.copy()
 		display["time"] = df["timestamp"].dt.strftime("%H:%M:%S")
-		display = display[["time", "label", "risk", "anomaly", "top_probs"]]
+		display = display[["time", "label", "category", "severity", "mitre", "risk", "anomaly", "top_probs"]]
 		styled = display.style.applymap(lambda _: label_style(_), subset=["label"])
 		st.dataframe(styled, use_container_width=True, height=420)
 
 	with right:
 		st.subheader("Alerts")
-		alerts = df[df["label"].isin(["UNKNOWN_ATTACK", "BRUTE_FORCE", "DOS", "DDOS", "PORTSCAN", "WEB_ATTACK", "BOTNET", "INFILTRATION"])]
+		alerts = df[df["label"].isin(["ZERO_DAY", "BRUTE_FORCE", "DOS", "DDOS", "PORTSCAN", "WEB_ATTACK", "BOTNET", "INFILTRATION"])]
 		alerts = alerts.sort_values("timestamp", ascending=False).head(10)
 		if alerts.empty:
 			st.write("No alerts yet.")
@@ -121,7 +152,7 @@ def main() -> None:
 				label = row["label"]
 				time_str = row["timestamp"].strftime("%H:%M:%S") if pd.notnull(row["timestamp"]) else "-"
 				st.markdown(
-					f"<div class='alert'>[{time_str}] <b>{label}</b> | risk={row['risk']:.4f} | anomaly={row['anomaly']:.4f}</div>",
+					f"<div class='alert'>[{time_str}] <b>{label}</b> | severity={row['severity']} | risk={row['risk']:.4f} | anomaly={row['anomaly']:.4f}</div>",
 					unsafe_allow_html=True,
 				)
 

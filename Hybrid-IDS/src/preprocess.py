@@ -218,7 +218,11 @@ def save_artifacts(
 	dump(scaler, models_dir / "scaler.pkl")
 
 
-def run_pipeline(project_root: Optional[Path] = None, random_state: int = 42) -> None:
+def run_pipeline(
+	project_root: Optional[Path] = None,
+	random_state: int = 42,
+	max_rows: Optional[int] = None,
+) -> None:
 	paths = get_paths(project_root)
 	csvs = iter_training_csvs(paths.data_training_dir)
 	df = load_training_data(csvs)
@@ -229,6 +233,9 @@ def run_pipeline(project_root: Optional[Path] = None, random_state: int = 42) ->
 	# Keep only rows that map into the requested taxonomy
 	df = df.loc[categories.isin(LABEL_TO_ID.keys())].copy()
 	categories = categories.loc[df.index]
+	if max_rows and len(df) > max_rows:
+		df = df.sample(n=int(max_rows), random_state=random_state)
+		categories = categories.loc[df.index]
 
 	_, feature_cols = split_metadata_and_features(df, label_col=label_col)
 	if not feature_cols:
@@ -300,11 +307,21 @@ def main() -> None:
 		default=None,
 		help="Path to Hybrid-IDS folder (defaults to auto-detect).",
 	)
+	parser.add_argument(
+		"--max-rows",
+		type=int,
+		default=None,
+		help="Optional cap on number of rows to speed up preprocessing.",
+	)
 	parser.add_argument("--random-state", type=int, default=42)
 	args = parser.parse_args()
 
 	project_root = Path(args.project_root).resolve() if args.project_root else None
-	run_pipeline(project_root=project_root, random_state=args.random_state)
+	run_pipeline(
+		project_root=project_root,
+		random_state=args.random_state,
+		max_rows=args.max_rows,
+	)
 
 
 if __name__ == "__main__":

@@ -50,6 +50,7 @@ def infer_scores(
 	w2: float = 0.3,
 	threshold_high: Optional[float] = None,
 	batch_size: int = 256,
+	input_scaled: bool = False,
 ) -> dict:
 	artifacts = artifacts or build_fusion_artifacts(project_root)
 	return fuse_scores(
@@ -59,6 +60,7 @@ def infer_scores(
 		w2=w2,
 		threshold_high=threshold_high,
 		batch_size=batch_size,
+		input_scaled=input_scaled,
 	)
 
 
@@ -81,6 +83,11 @@ def main() -> None:
 	parser.add_argument("--w2", type=float, default=0.3)
 	parser.add_argument("--threshold-high", type=float, default=None)
 	parser.add_argument("--batch-size", type=int, default=256)
+	parser.add_argument(
+		"--input-scaled",
+		action="store_true",
+		help="Set when --input is already scaled with the saved scaler.",
+	)
 	parser.add_argument("--top-k", type=int, default=3, help="Show top-k class probabilities")
 	args = parser.parse_args()
 
@@ -102,6 +109,7 @@ def main() -> None:
 		w2=args.w2,
 		threshold_high=args.threshold_high,
 		batch_size=args.batch_size,
+		input_scaled=args.input_scaled,
 	)
 
 	labels = result["labels"]
